@@ -1,6 +1,6 @@
 # ksqlDB PHP client
 
-> Currently under development. API stability is not gaurenteed until v1.
+> Currently under development. API stability is not guaranteed until v1.
 
 # Features
 - Asynchronous operations (thanks to [amphp/amp](https://github.com/amphp/amp)!)
