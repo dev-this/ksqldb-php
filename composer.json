@@ -1,0 +1,29 @@
+{
+  "name": "dev-this/ksqldb-php",
+  "description": "Asynchronous ksqlDB PHP client for PHP 8",
+  "keywords": [
+    "kafka",
+    "streams",
+    "ksqldb",
+    "ksql"
+  ],
+  "authors": [
+    {
+      "name": "Mitchell Macpherson",
+      "email": "mitchell@devthis.com.au"
+    }
+  ],
+  "license": "MIT",
+  "require": {
+    "php": ">=8.0",
+    "amphp/http-client": "^4.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "DevThis\\KsqlDB\\": "src/"
+    }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.0"
+  }
+}
