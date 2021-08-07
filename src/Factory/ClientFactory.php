@@ -1,18 +1,19 @@
 <?php
 declare(strict_types=1);
 
-namespace DevThis\KsqlDB;
+namespace DevThis\KsqlDB\Factory;
 
 use Amp\Http\Client\HttpClientBuilder;
+use DevThis\KsqlDB\Client;
+use DevThis\KsqlDB\Interfaces\Factory\ClientFactoryInterface;
 
-class ClientFactory
+class ClientFactory implements ClientFactoryInterface
 {
     public function create(string $baseUri): Client
     {
         return new Client(
-            rtrim($baseUri, '/'),
             HttpClientBuilder::buildDefault(),
-            new RequestFactory()
+            new RequestFactory($baseUri)
         );
     }
 }

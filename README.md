@@ -2,16 +2,22 @@
 
 > Currently under development. API stability is not guaranteed until v1.
 
+Requires PHP 8
+```bash
+composer require dev-this/ksqldb-php
+```
+
+
 # Features
 - Asynchronous operations (thanks to [amphp/amp](https://github.com/amphp/amp)!)
-- Supports [defined client supported features](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-clients/contributing/#functionality)
-  - [Push/pull query support (HTTP/2)](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/)
-  - Terminating push queries
-  - Inserting new rows of data into existing ksqlDB streams
-  - Listing existing streams, tables, topics and queries
-  - Creation and deletion of streams and tables
-  - Terminating persistent queries
-- Compatible with Amp APIs
+- All the Confluent [desired client features](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-clients/contributing/#functionality)
+  - [x] Push/pull query support (HTTP/2)(https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/)
+  - [x] Terminating push queries
+  - [ ] Inserting new rows of data into existing ksqlDB streams
+  - [x] Listing existing streams, tables, topics and queries
+  - [x] Creation and deletion of streams and tables
+  - [x] Terminating persistent queries
+- Native `Amp\Promise` functionality
 
 ## Usage
 
@@ -20,19 +26,20 @@ There is a factory available for client creation
 
 `DevThis\KsqlDB\ClientFactory::create(string $hostname): DevThis\KsqlDB\Client`
 
-No connection will be established until a client command has been called.
+No HTTP connection will be established until a client command has been called.
 
 **Usage:**
 ```php
 $hostname = 'http://localhost:8088';
 
-$client = (new DevThis\KsqlDB\ClientFactory())->create($hostname);
+$client = (new DevThis\KsqlDB\Factory\ClientFactory())->create($hostname);
 ```
 
 ### Streaming callbacks
 Streaming a query requires a callback class that implements a callback interface.
+Establishing a stream is purposefully blocking until the header has been received (along with query ID).
 
-`DevThis\KsqlDB\ClientFactory::stream(Statement $statement, StreamCallback $callback): Amp\Promise`
+`DevThis\KsqlDB\Factory\ClientFactory::stream(Statement $statement, StreamCallback $callback): Amp\Promise`
 
 Callback class must implement `StreamCallback`
 ```php
@@ -67,7 +74,12 @@ $transactionHandler = new class implements StreamCallback {
     }
 }
 
-$promise = $client->stream($transactionStatement, $transactionHandler);
+$stream = $client->stream($transactionStatement, $transactionHandler);
+// Query ID
+echo $stream->getQueryId();
+
+// Terminate the query
+$client->terminate($stream);
 
 // wait indefinitely
 \Amp\Promise\wait($promise);
@@ -76,15 +88,9 @@ $promise = $client->stream($transactionStatement, $transactionHandler);
 ### Executing a statement
 Executing a statement works similarly to Streaming a statement. The main difference is that executed statements are not continous operations.
 
-`DevThis\KsqlDB\ClientFactory::execute(Statement $statement, ExecutionCallback $callback): Amp\Promise`
+`DevThis\KsqlDB\Client::execute(Statement $statement): ArrayObject`
 
-Callback class must implement `ExecutionCallback`
-```php
-interface StreamCallback {
-    // OnEvent receives the statement result
-    public function onResponse(array $event): void;
-}
-````
+`ArrayObject` will contain the response.
 
 # Functional example
 Asynchronous application that will eat its own dogfood. Consuming the very events it created:
@@ -92,7 +98,7 @@ Asynchronous application that will eat its own dogfood. Consuming the very event
 ```php
 use DevThis\KsqlDB\Interfaces\StreamCallback;
 use DevThis\KsqlDB\Statement;
-use DevThis\KsqlDB\ClientFactory;
+use DevThis\KsqlDB\Factory\ClientFactory;
 use DevThis\KsqlDB\StreamEvent;
 use DevThis\KsqlDB\StreamHeader;
 
@@ -110,9 +116,7 @@ $createStatement = new Statement("CREATE STREAM cool_data (
     timestamp_format = 'yyyy-MM-dd''T''HH:mm:ss'
 );");
 $streamStatement = new Statement("SELECT * FROM cool_data EMIT CHANGES;");
-$insertStatement = new Statement("SELECT * FROM cool_data EMIT CHANGES;");
-
-$transactionHandler = new class implements \DevThis\KsqlDB\Interfaces\ExecutionCallback {
+$coolDataCallback = new class implements \DevThis\KsqlDB\Interfaces\StreamCallback {
     private const SCHEMA_ID = 0;
     private const SCHEMA_MESSAGE = 1;
     private const SCHEMA_TIMESTAMP = 2;
@@ -133,24 +137,22 @@ $transactionHandler = new class implements \DevThis\KsqlDB\Interfaces\ExecutionC
     }
 };
 
-$streamingToken = new CancellationTokenSource();
-$stream = $client->stream($streamStatement, $transactionHandler, $cancelToken);
+$stream = $client->execute($createStatement);
 
-// Repeat 100 times
-\Amp\Loop::repeat(100, function () use (&$i) {
-    // Array of promises
-    $insertions = [
-        $client->execute($streamStatement),
-        $client->execute($streamStatement),
-        $client->execute($streamStatement)
-    ];
+// Run event loop
+// https://amphp.org/amp/event-loop/
+\Amp\Loop::run(function () use ($client) {
+    $stream = $client->streamAsync($streamStatement, $coolDataCallback);
+
+    Loop::repeat(1000, static function() {
+        // insert into stream example.
+    });
     
-    // Wait for all promises to resolve before looping again
-    \Amp\Promise\wait(\Amp\Promise\all($insertions));
+    // Terminate stream after 100 seconds.
+    Loop::delay(1000 * 100, static function () use ($client, $stream) {
+        $client->terminateStream($stream->getQueryId());
+    });
 });
-
-// Kills the streaming query
-$streamingCancelToken->cancel();
 ```
 
 ## Alternatives
