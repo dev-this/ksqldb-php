@@ -20,11 +20,6 @@ final class RunningStream implements Promise
         return $this->queryId;
     }
 
-    public function terminate(): void
-    {
-
-    }
-
     public function onResolve(callable $onResolved)
     {
         return $this->promise;

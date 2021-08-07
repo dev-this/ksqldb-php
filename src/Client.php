@@ -64,7 +64,7 @@ class Client implements ClientInterface
         return $deferred->promise();
     }
 
-    public function terminateStream(string $queryId)
+    public function terminateStream(string $queryId): void
     {
         $request = $this->requestFactory->create(
             '/close-query',
@@ -81,9 +81,8 @@ class Client implements ClientInterface
          */
         $response = Promise\wait($responsePromise);
 
-        $event = Promise\wait($response->getBody()->buffer());
-
-        var_dump($event);
+        // @todo check response
+        Promise\wait($response->getBody()->buffer());
     }
 
     public function streamAsync(Statement $query, StreamCallback $handler): RunningStream
@@ -96,7 +95,6 @@ class Client implements ClientInterface
 
         $responsePromise = $this->ampHttpClient->request($request);
 
-
         /**
          * yield forces promise to wait for header response
          *
@@ -108,7 +106,6 @@ class Client implements ClientInterface
         $header = Promise\wait($response->getBody()->read());
         $header = json_decode($header, true, JSON_THROW_ON_ERROR);
 
-
         // Fetch first line from stream, to work out column mapping
 /*            if (null !== $chunk = yield $response->getBody()->read()) {
             $header = json_decode($chunk, true, JSON_THROW_ON_ERROR);
@@ -116,14 +113,6 @@ class Client implements ClientInterface
             if (($header['@type'] ?? null) === 'generic_error') {
                 throw new \Exception(sprintf('[%d] %s', $header['error_code'] ?? 0, $header['message'] ?? ''));
             }
-
-            $handler->onHeader(
-                new StreamHeader(
-                    $header['queryId'],
-                    $header['columnNames'],
-                    $header['columnTypes']
-                )
-            );
         }*/
         $handler->onHeader(
             new StreamHeader(
@@ -138,10 +127,6 @@ class Client implements ClientInterface
                 $event = new StreamEvent(json_decode($chunk, true, JSON_THROW_ON_ERROR));
                 $handler->onEvent($event);
             }
-        };
-
-        $terminate = function() use ($header) {
-            $this->terminateStream($header['queryId']);
         };
 
         return new RunningStream($streamingBody, $header['queryId']);
