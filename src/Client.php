@@ -64,6 +64,43 @@ class Client implements ClientInterface
         return $deferred->promise();
     }
 
+    public function insertAsync(string $stream, array ...$events): Promise
+    {
+        $request = $this->requestFactory->create(
+            '/inserts-stream',
+            'POST',
+            ['target' => $stream],
+            ...$events
+        );
+
+        $deferred = new Deferred();
+
+        call(function() use ($request, $deferred) {
+            $responsePromise = $this->ampHttpClient->request($request);
+
+            /**
+             * yield forces promise to wait for header response
+             *
+             * @var \Amp\Http\Client\Response $response
+             */
+            $response = yield $responsePromise;
+
+            $event = yield $response->getBody()->buffer();
+
+            $normalised = json_decode(
+                $event,
+                true,
+                JSON_THROW_ON_ERROR
+            );
+
+            // {"@type":"generic_error","error_code":40000,"message":"Invalid JSON in request: Cannot deserialize instance of `io.confluent.ksql.rest.entity.InsertsStreamArgs` out of START_ARRAY token\n at [Source: (byte[])\"[\"ticket_submitted\"]\"; line: 1, column: 1]"}
+
+            $deferred->resolve(new ArrayObject($normalised));
+        });
+
+        return $deferred->promise();
+    }
+
     public function terminateStream(string $queryId): void
     {
         $request = $this->requestFactory->create(

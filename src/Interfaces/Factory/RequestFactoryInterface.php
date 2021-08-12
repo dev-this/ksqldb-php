@@ -7,5 +7,5 @@ use Amp\Http\Client\Request;
 
 interface RequestFactoryInterface
 {
-    public function create(string $path, string $method, array $body): Request;
+    public function create(string $path, string $method, array ...$body): Request;
 }

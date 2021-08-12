@@ -10,7 +10,7 @@ class RequestFactoryFake implements RequestFactoryInterface
 {
     public function __construct(private Request $request) {}
 
-    public function create(string $path, string $method, array $body): Request
+    public function create(string $path, string $method, array ...$body): Request
     {
         return $this->request;
     }

@@ -12,7 +12,7 @@ class RequestFactory implements RequestFactoryInterface
 {
     public function __construct(private string $baseUri) {}
 
-    public function create(string $path, string $method, array $body): Request
+    public function create(string $path, string $method, array ...$body): Request
     {
         $path = sprintf('%s%s', rtrim($this->baseUri, '/'), $path);
 
@@ -28,7 +28,13 @@ class RequestFactory implements RequestFactoryInterface
         $request->setTlsHandshakeTimeout(0);
         $request->setTransferTimeout(0);
 
-        $request->setBody(json_encode((object)array_filter($body)));
+        if (count($body) > 1) {
+            $request->setBody(implode("\n", array_map(fn($item) => json_encode($item), $body)));
+
+            return $request;
+        }
+
+        $request->setBody(json_encode((object)implode("\n",array_filter($body))));
 
         return $request;
     }
