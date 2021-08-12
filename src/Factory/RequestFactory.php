@@ -34,7 +34,7 @@ class RequestFactory implements RequestFactoryInterface
             return $request;
         }
 
-        $request->setBody(json_encode((object)implode("\n",array_filter($body))));
+        $request->setBody(json_encode((object)implode("\n",array_filter($body[0] ?? []))));
 
         return $request;
     }
