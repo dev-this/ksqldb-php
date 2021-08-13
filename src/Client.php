@@ -93,9 +93,15 @@ class Client implements ClientInterface
                 JSON_THROW_ON_ERROR
             );
 
-            // {"@type":"generic_error","error_code":40000,"message":"Invalid JSON in request: Cannot deserialize instance of `io.confluent.ksql.rest.entity.InsertsStreamArgs` out of START_ARRAY token\n at [Source: (byte[])\"[\"ticket_submitted\"]\"; line: 1, column: 1]"}
+            if (($header['@type'] ?? null) === 'generic_error') {
+                throw new \Exception(sprintf('[%d] %s', $header['error_code'] ?? 0, $header['message'] ?? ''));
+            }
 
-            $deferred->resolve(new ArrayObject($normalised));
+            $responsePromise->onResolve(static function() use ($deferred, $normalised) {
+                $deferred->resolve(new ArrayObject($normalised));
+            });
+
+            // {"@type":"generic_error","error_code":40000,"message":"Invalid JSON in request: Cannot deserialize instance of `io.confluent.ksql.rest.entity.InsertsStreamArgs` out of START_ARRAY token\n at [Source: (byte[])\"[\"example\"]\"; line: 1, column: 1]"}
         });
 
         return $deferred->promise();
@@ -140,17 +146,14 @@ class Client implements ClientInterface
         //$response = yield $responsePromise;
         $response = Promise\wait($responsePromise);
 
+        // Fetch first line from stream, to work out column mapping
         $header = Promise\wait($response->getBody()->read());
         $header = json_decode($header, true, JSON_THROW_ON_ERROR);
 
-        // Fetch first line from stream, to work out column mapping
-/*            if (null !== $chunk = yield $response->getBody()->read()) {
-            $header = json_decode($chunk, true, JSON_THROW_ON_ERROR);
+        if (($header['@type'] ?? null) === 'generic_error') {
+            throw new \Exception(sprintf('[%d] %s', $header['error_code'] ?? 0, $header['message'] ?? ''));
+        }
 
-            if (($header['@type'] ?? null) === 'generic_error') {
-                throw new \Exception(sprintf('[%d] %s', $header['error_code'] ?? 0, $header['message'] ?? ''));
-            }
-        }*/
         $handler->onHeader(
             new StreamHeader(
                 $header['queryId'],

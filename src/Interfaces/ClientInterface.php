@@ -14,6 +14,8 @@ interface ClientInterface
 
     public function executeAsync(Statement $statement): Promise;
 
+    public function insertAsync(string $stream, array ...$events): Promise;
+
     //public function stream(Statement $query): iterable;
 
     public function streamAsync(Statement $query, StreamCallback $handler): RunningStream;
